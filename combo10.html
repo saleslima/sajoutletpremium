@@ -1,0 +1,532 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Boletos e Acumulado de Itens por Mês</title>
+    <style>
+        /* Estilos para a página */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('cover2.png'); /* Substitua 'https://example.com/sua-imagem.jpg' pela URL da sua imagem */
+            background-size: cover;
+            background-position: center;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .container:nth-child(odd) {
+            background-color: #f9f9f9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .total {
+            font-weight: bold;
+        }
+
+        button {
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Estilo para posicionar os botões lado a lado */
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/8.4.2/firebase.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Lista de Boletos</h1>
+
+        <!-- Tabela para exibir os boletos -->
+        <table id="boletosTable">
+            <thead>
+                <tr>
+                    <th>Fornecedor</th>
+                    <th>Data de Vencimento</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Código de Barras</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="boletosTbody"></tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h1>Gasto de Itens por Mês - <span id="anoLabel">Ano: </span> R$ <span id="totalAno">0</span></h1>
+        <div class="button-container">
+            <button onclick="atualizarDados()">Atualizar</button>
+            <!-- Botão "Voltar" -->
+            <button onclick="window.location.href = 'index.html'">Voltar</button>
+        </div>
+        <table id="itensTable">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Jan</th>
+                    <th>Fev</th>
+                    <th>Mar</th>
+                    <th>Abr</th>
+                    <th>Mai</th>
+                    <th>Jun</th>
+                    <th>Jul</th>
+                    <th>Ago</th>
+                    <th>Set</th>
+                    <th>Out</th>
+                    <th>Nov</th>
+                    <th>Dez</th>
+                    <th>Total Ano</th>
+                </tr>
+            </thead>
+            <tbody id="itensBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Tabela para exibir os gastos de itens do ano anterior -->
+    <div class="container" id="containerAnoAnterior" style="display: none;">
+        <h1>Gasto de Itens do Ano Anterior - <span id="anoLabelAnterior">Ano: </span> R$ <span
+                id="totalAnoAnterior">0</span></h1>
+        <table id="itensTableAnterior">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Jan</th>
+                    <th>Fev</th>
+                    <th>Mar</th>
+                    <th>Abr</th>
+                    <th>Mai</th>
+                    <th>Jun</th>
+                    <th>Jul</th>
+                    <th>Ago</th>
+                    <th>Set</th>
+                    <th>Out</th>
+                    <th>Nov</th>
+                    <th>Dez</th>
+                    <th>Total Ano</th>
+                </tr>
+            </thead>
+            <tbody id="itensBodyAnterior"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyslX1ydsaMVMSh6rGFbIOX1JFUtGJltQ",
+            authDomain: "saj-outlet.firebaseapp.com",
+            databaseURL: "https://saj-outlet-default-rtdb.firebaseio.com",
+            projectId: "saj-outlet",
+            storageBucket: "saj-outlet.appspot.com",
+            messagingSenderId: "840771689142",
+            appId: "1:840771689142:web:7a90f92242044cf4762417"
+        };
+
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        // Função para carregar os boletos e exibir na tabela
+        function carregarBoletos() {
+            const boletosRef = firebase.database().ref('boletos');
+            boletosRef.on('value', snapshot => {
+                const boletosTbody = document.getElementById('boletosTbody');
+                boletosTbody.innerHTML = ''; // Limpa a tabela
+
+                snapshot.forEach(childSnapshot => {
+                    const boleto = childSnapshot.val();
+                    const key = childSnapshot.key;
+
+                    // Cria uma linha na tabela para cada boleto
+                    const row = document.createElement('tr');
+
+                    // Cria células para cada campo do boleto
+                    const fornecedorCell = document.createElement('td');
+                    fornecedorCell.textContent = boleto.fornecedor;
+
+                    const vencimentoCell = document.createElement('td');
+                    vencimentoCell.textContent = boleto.vencimento;
+
+                    const valorCell = document.createElement('td');
+                    valorCell.textContent = boleto.valor;
+
+                    // Cria uma célula para o campo de status com uma lista suspensa
+                    const statusCell = document.createElement('td');
+                    const statusSelect = document.createElement('select');
+                    const statusOptions = ["Pendente", "Pago", "Atrasado"];
+
+                    // Adiciona opções à lista suspensa
+                    for (const option of statusOptions) {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option;
+                        optionElement.text = option;
+
+                        // Define a opção selecionada como a correspondente ao status atual
+                        if (option === boleto.status) {
+                            optionElement.selected = true;
+                        }
+
+                        statusSelect.appendChild(optionElement);
+                    }
+
+                    statusCell.appendChild(statusSelect);
+
+                    const codigoBarrasCell = document.createElement('td');
+                    codigoBarrasCell.textContent = boleto.codigoBarras;
+
+                    // Cria célula de ações com botões
+                    const acoesCell = document.createElement('td');
+
+                    // Botão para copiar código de barras
+                    const copiarButton = document.createElement('button');
+                    copiarButton.textContent = 'Copiar';
+                    copiarButton.onclick = function () {
+                        navigator.clipboard.writeText(boleto.codigoBarras)
+                            .then(() => alert('Código de barras copiado para a área de transferência!'))
+                            .catch(error => console.error('Erro ao copiar:', error));
+                    };
+                    acoesCell.appendChild(copiarButton);
+
+                    // Botão para excluir boleto
+                    const excluirButton = document.createElement('button');
+                    excluirButton.textContent = 'Excluir';
+                    excluirButton.onclick = function () {
+                        excluirBoleto(key);
+                    };
+                    acoesCell.appendChild(excluirButton);
+
+                    // Botão para alterar boleto
+                    const alterarButton = document.createElement('button');
+                    alterarButton.textContent = 'Alterar';
+                    alterarButton.onclick = function () {
+                        alterarBoleto(key, statusSelect);
+                    };
+                    acoesCell.appendChild(alterarButton);
+
+                    // Adiciona células à linha
+                    row.appendChild(fornecedorCell);
+                    row.appendChild(vencimentoCell);
+                    row.appendChild(valorCell);
+                    row.appendChild(statusCell);
+                    row.appendChild(codigoBarrasCell);
+                    row.appendChild(acoesCell);
+
+                    // Adiciona a linha à tabela
+                    boletosTbody.appendChild(row);
+                });
+            });
+        }
+
+        // Função para excluir um boleto do banco de dados
+        function excluirBoleto(key) {
+            const confirmacao = confirm('Tem certeza que deseja excluir este boleto?');
+            if (confirmacao) {
+                const boletosRef = firebase.database().ref('boletos');
+                boletosRef.child(key).remove()
+                    .then(() => alert('Boleto excluído com sucesso!'))
+                    .catch(error => console.error('Erro ao excluir boleto:', error));
+            }
+        }
+
+        // Função para alterar o status de um boleto existente
+        function alterarBoleto(key, statusSelect) {
+            // Obter o novo status da lista suspensa
+            const novoStatus = statusSelect.value;
+
+            // Mensagem de confirmação para o novo status
+            const confirmacao = confirm(`Deseja confirmar alteração para "${novoStatus}"?`);
+
+            if (confirmacao) {
+                // Atualizar o status no banco de dados
+                const boletosRef = firebase.database().ref('boletos');
+                boletosRef.child(key).update({ status: novoStatus })
+                    .then(() => alert('Status do boleto atualizado com sucesso!'))
+                    .catch(error => console.error('Erro ao atualizar status do boleto:', error));
+            }
+
+            // Após a confirmação ou não, recarregar a tabela para exibir os dados atualizados
+            carregarBoletos();
+        }
+
+        // Carrega os boletos ao carregar a página
+        carregarBoletos();
+
+        // Function to display accumulated items by month
+        function displayAccumulatedItems() {
+            const itensBody = document.getElementById('itensBody');
+            const totalAnoSpan = document.getElementById('totalAno');
+            const anoLabel = document.getElementById('anoLabel');
+            let totalAno = 0;
+
+            // Clear previous data
+            itensBody.innerHTML = '';
+
+            // Reference to the "boletos" node in Firebase Database
+            const boletosRef = firebase.database().ref('boletos');
+
+            // Dictionary to store the accumulated amount of each item per month
+            const accumulatedByItemMonth = {};
+
+            // Dictionary to store the accumulated amount of each item in the year
+            const accumulatedByItemYear = {};
+
+            // Fetch data from Firebase Database
+            boletosRef.once('value', snapshot => {
+                const boletos = snapshot.val();
+
+                // Iterate over each boleto
+                for (const key in boletos) {
+                    if (Object.hasOwnProperty.call(boletos, key)) {
+                        const boleto = boletos[key];
+                        const monthEmissao = new Date(boleto.emissao).getMonth(); // Get the month of issuance
+                        const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
+
+                        // Update year label
+                        anoLabel.textContent = `Ano: ${yearEmissao}`;
+
+                        // Iterate over each item in the boleto
+                        if (boleto.itens) {
+                            for (const itemKey in boleto.itens) {
+                                if (Object.hasOwnProperty.call(boleto.itens, itemKey)) {
+                                    const item = boleto.itens[itemKey];
+                                    const itemType = item.tipo;
+                                    const itemValue = item.valor;
+
+                                    // Initialize the accumulated amount of the item per month if it doesn't exist
+                                    if (!accumulatedByItemMonth[itemType]) {
+                                        accumulatedByItemMonth[itemType] = Array(12).fill(0);
+                                    }
+
+                                    // Add the item value to the accumulated amount of the item per month
+                                    accumulatedByItemMonth[itemType][monthEmissao] += itemValue;
+
+                                    // Initialize the accumulated amount of the item in the year if it doesn't exist
+                                    if (!accumulatedByItemYear[itemType]) {
+                                        accumulatedByItemYear[itemType] = 0;
+                                    }
+
+                                    // Add the item value to the accumulated amount of the item in the year
+                                    accumulatedByItemYear[itemType] += itemValue;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Display the accumulated amounts of each item per month
+                for (const itemType in accumulatedByItemMonth) {
+                    if (Object.hasOwnProperty.call(accumulatedByItemMonth, itemType)) {
+                        const monthsTotal = accumulatedByItemMonth[itemType];
+                        const yearTotal = accumulatedByItemYear[itemType];
+
+                        const row = document.createElement('tr');
+
+                        const itemNameCell = document.createElement('td');
+                        itemNameCell.textContent = itemType;
+                        row.appendChild(itemNameCell);
+
+                        for (let i = 0; i < monthsTotal.length; i++) {
+                            const monthCell = document.createElement('td');
+                            monthCell.textContent = `R$ ${monthsTotal[i].toFixed(2)}`;
+                            row.appendChild(monthCell);
+                        }
+
+                        const totalYearCell = document.createElement('td');
+                        totalYearCell.classList.add('total');
+                        totalYearCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
+                        row.appendChild(totalYearCell);
+
+                        itensBody.appendChild(row);
+
+                        // Update total year
+                        totalAno += yearTotal;
+                    }
+                }
+
+                // Update total year value
+                totalAnoSpan.textContent = totalAno.toFixed(2);
+            });
+        }
+
+        // Function to update data when the "Atualizar" button is clicked
+        function atualizarDados() {
+            displayAccumulatedItems();
+        }
+
+        // Call the function to display accumulated items
+        displayAccumulatedItems();
+
+        // Function to check if the year has changed
+        function checkYearChange() {
+            const hoje = new Date();
+            const anoAtual = hoje.getFullYear();
+            const containerAnoAnterior = document.getElementById('containerAnoAnterior');
+
+            containerAnoAnterior.style.display = 'none'; // Hide the previous year container by default
+
+            // Check if there's data for the previous year in the database
+            const boletosRef = firebase.database().ref('boletos');
+            boletosRef.once('value', snapshot => {
+                const boletos = snapshot.val();
+                for (const key in boletos) {
+                    if (Object.hasOwnProperty.call(boletos, key)) {
+                        const boleto = boletos[key];
+                        const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
+
+                        // If there's data for the previous year, show the container and update its content
+                        if (yearEmissao < anoAtual) {
+                            containerAnoAnterior.style.display = 'block';
+                            displayAccumulatedItemsAnoAnterior();
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to display accumulated items for the previous year
+        function displayAccumulatedItemsAnoAnterior() {
+            const itensBodyAnterior = document.getElementById('itensBodyAnterior');
+            const totalAnoAnteriorSpan = document.getElementById('totalAnoAnterior');
+            const anoLabelAnterior = document.getElementById('anoLabelAnterior');
+            let totalAnoAnterior = 0;
+
+            // Clear previous data
+            itensBodyAnterior.innerHTML = '';
+
+            // Reference to the "boletos" node in Firebase Database
+            const boletosRef = firebase.database().ref('boletos');
+
+            // Dictionary to store the accumulated amount of each item per month for the previous year
+            const accumulatedByItemMonthAnterior = {};
+
+            // Dictionary to store the accumulated amount of each item in the year for the previous year
+            const accumulatedByItemYearAnterior = {};
+
+            // Fetch data from Firebase Database
+            boletosRef.once('value', snapshot => {
+                const boletos = snapshot.val();
+
+                // Iterate over each boleto
+                for (const key in boletos) {
+                    if (Object.hasOwnProperty.call(boletos, key)) {
+                        const boleto = boletos[key];
+                        const monthEmissao = new Date(boleto.emissao).getMonth(); // Get the month of issuance
+                        const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
+
+                        // Check if the boleto is from the previous year
+                        if (yearEmissao < new Date().getFullYear()) {
+                            // Update year label
+                            anoLabelAnterior.textContent = `Ano: ${yearEmissao}`;
+
+                            // Iterate over each item in the boleto
+                            if (boleto.itens) {
+                                for (const itemKey in boleto.itens) {
+                                    if (Object.hasOwnProperty.call(boleto.itens, itemKey)) {
+                                        const item = boleto.itens[itemKey];
+                                        const itemType = item.tipo;
+                                        const itemValue = item.valor;
+
+                                        // Initialize the accumulated amount of the item per month if it doesn't exist
+                                        if (!accumulatedByItemMonthAnterior[itemType]) {
+                                            accumulatedByItemMonthAnterior[itemType] = Array(12).fill(0);
+                                        }
+
+                                        // Add the item value to the accumulated amount of the item per month
+                                        accumulatedByItemMonthAnterior[itemType][monthEmissao] += itemValue;
+
+                                        // Initialize the accumulated amount of the item in the year if it doesn't exist
+                                        if (!accumulatedByItemYearAnterior[itemType]) {
+                                            accumulatedByItemYearAnterior[itemType] = 0;
+                                        }
+
+                                        // Add the item value to the accumulated amount of the item in the year
+                                        accumulatedByItemYearAnterior[itemType] += itemValue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Display the accumulated amounts of each item per month for the previous year
+                for (const itemType in accumulatedByItemMonthAnterior) {
+                    if (Object.hasOwnProperty.call(accumulatedByItemMonthAnterior, itemType)) {
+                        const monthsTotal = accumulatedByItemMonthAnterior[itemType];
+                        const yearTotal = accumulatedByItemYearAnterior[itemType];
+
+                        const row = document.createElement('tr');
+
+                        const itemNameCell = document.createElement('td');
+                        itemNameCell.textContent = itemType;
+                        row.appendChild(itemNameCell);
+
+                        for (let i = 0; i < monthsTotal.length; i++) {
+                            const monthCell = document.createElement('td');
+                            monthCell.textContent = `R$ ${monthsTotal[i].toFixed(2)}`;
+                            row.appendChild(monthCell);
+                        }
+
+                        const totalYearCell = document.createElement('td');
+                        totalYearCell.classList.add('total');
+                        totalYearCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
+                        row.appendChild(totalYearCell);
+
+                        itensBodyAnterior.appendChild(row);
+
+                        // Update total year for the previous year
+                        totalAnoAnterior += yearTotal;
+                    }
+                }
+
+                // Update total year value for the previous year
+                totalAnoAnteriorSpan.textContent = totalAnoAnterior.toFixed(2);
+            });
+        }
+
+        // Call the function to check if the year has changed
+        checkYearChange();
+    </script>
+    
+</body>
+
+</html>

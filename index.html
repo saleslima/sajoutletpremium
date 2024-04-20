@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Controle de Boletos</title>
+    
+    <!-- Incluindo os estilos CSS -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+		background-image: url('cover2.png'); /* Substitua 'https://example.com/sua-imagem.jpg' pela URL da sua imagem */
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+        }
+        
+        .form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        label {
+            font-weight: bold;
+        }
+        
+        input, select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        button {
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    
+    <!-- Incluindo as bibliotecas do Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.4.2/firebase.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Controle de Boletos</h1>
+        
+        <!-- Formulário para dados do boleto -->
+        <div class="form">
+            <label for="fornecedor">Fornecedor:</label>
+            <input type="text" id="fornecedor" name="fornecedor">
+            
+            <label for="notaFiscal">Nota Fiscal:</label>
+            <input type="text" id="notaFiscal" name="notaFiscal">
+            
+            <label for="emissao">Data de Emissão:</label>
+            <input type="date" id="emissao" name="emissao">
+            
+            <label for="vencimento">Data de Vencimento:</label>
+            <input type="date" id="vencimento" name="vencimento">
+            
+            <label for="valor">Valor:</label>
+            <input type="number" id="valor" name="valor" step="0.01">
+            
+            <label for="codigoBarras">Código de Barras:</label>
+            <input type="text" id="codigoBarras" name="codigoBarras">
+            
+            <label for="status">Status:</label>
+            <select id="status" name="status">
+                <option value="pendente" selected>Pendente</option>
+                <option value="pago">Pago</option>
+            </select>
+            
+            <label for="detalhes">Número de Detalhes:</label>
+            <select id="detalhes" name="detalhes" onchange="gerarCamposItens()">
+                <option value="0" selected>0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</ption>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+            </select>
+            
+            <div id="itensContainer"></div>
+            
+            <button onclick="salvarBoleto()">Salvar</button>
+            
+            <!-- Botão "Geral" -->
+            <button onclick="window.location.href = 'combo10.html'">Geral</button>
+        </div>
+    </div>
+
+    <!-- Incluindo o código JavaScript -->
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyslX1ydsaMVMSh6rGFbIOX1JFUtGJltQ",
+            authDomain: "saj-outlet.firebaseapp.com",
+            databaseURL: "https://saj-outlet-default-rtdb.firebaseio.com",
+            projectId: "saj-outlet",
+            storageBucket: "saj-outlet.appspot.com",
+            messagingSenderId: "840771689142",
+            appId: "1:840771689142:web:7a90f92242044cf4762417"
+        };
+
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+
+      function salvarBoleto() {
+    const fornecedor = document.getElementById('fornecedor').value;
+    const notaFiscal = document.getElementById('notaFiscal').value;
+    const emissao = document.getElementById('emissao').value;
+    const vencimento = document.getElementById('vencimento').value;
+    const valor = parseFloat(document.getElementById('valor').value);
+    const codigoBarras = document.getElementById('codigoBarras').value;
+    const status = document.getElementById('status').value;
+    const detalhes = parseInt(document.getElementById('detalhes').value, 10);
+
+    // Verifique se todos os campos obrigatórios estão preenchidos
+    if (!fornecedor || !notaFiscal || !emissao || !vencimento || isNaN(valor) || !codigoBarras || !status) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+
+    // Adiciona verificação para o número de detalhes
+    if (detalhes === 0) {
+        alert('Por favor, escolha pelo menos 1 detalhe antes de salvar o boleto.');
+        return;
+    }
+
+    // Cria uma lista de itens com base nos detalhes
+    const itens = [];
+    for (let i = 0; i < detalhes; i++) {
+        const tipoItem = document.getElementById(`tipoItem${i}`).value;
+        const valorItem = parseFloat(document.getElementById(`valorItem${i}`).value);
+
+        if (!tipoItem || isNaN(valorItem)) {
+            alert(`Por favor, preencha todos os campos do item ${i + 1}.`);
+            return;
+        }
+
+        itens.push({ tipo: tipoItem, valor: valorItem });
+    }
+
+    // Cria um objeto com os dados do boleto
+    const boletoData = {
+        fornecedor,
+        notaFiscal,
+        emissao,
+        vencimento,
+        valor,
+        codigoBarras,
+        status,
+        itens,
+    };
+
+    // Salva os dados no Firebase
+    const database = firebase.database();
+    const boletosRef = database.ref('boletos');
+    boletosRef.push(boletoData).then(() => {
+        alert('Boleto salvo com sucesso!');
+        limparFormulario(); // Limpa o formulário após salvar
+    }).catch(error => {
+        alert(`Erro ao salvar boleto: ${error.message}`);
+    });
+}
+
+
+
+        // Função para gerar campos de itens com base no número de detalhes escolhido
+        function gerarCamposItens() {
+            const detalhes = parseInt(document.getElementById('detalhes').value, 10);
+            const itensContainer = document.getElementById('itensContainer');
+
+            // Limpa o container de itens
+            itensContainer.innerHTML = '';
+
+            // Adiciona campos de itens com base no número de detalhes escolhido
+            for (let i = 0; i < detalhes; i++) {
+                const divItem = document.createElement('div');
+                divItem.style.marginBottom = '10px';
+
+                // Campo de seleção para o tipo de item
+                const selectTipo = document.createElement('select');
+                selectTipo.id = `tipoItem${i}`;
+                selectTipo.name = `tipoItem${i}`;
+
+                // Adiciona as opções ao campo de seleção
+                const opcoesTipo = [
+                    { valor: 'carne', texto: 'Peixe, Ave, Carne' },
+                    { valor: 'laticinios', texto: 'Laticínios' },
+                    { valor: 'secos', texto: 'Secos' },
+                    { valor: 'vinho', texto: 'Vinho' },
+                    { valor: 'bebida_alcoolica', texto: 'Bebida Alcoólica' },
+                    { valor: 'bebida_nao_alcoolica', texto: 'Bebida Não-Alcoólica' },
+                    { valor: 'doces_salgados_sorvetes', texto: 'Doces, Salgados, Sorvetes' },
+                    { valor: 'hortifruti_granjeiros', texto: 'Hortifruti-Granjeiros' },
+                    { valor: 'saj_central_producao', texto: 'Saj Central Produção' },
+                    { valor: 'outras_materias_primas', texto: 'Outras Matérias-Primas' }
+                ];
+
+                opcoesTipo.forEach(opcao => {
+                    const option = document.createElement('option');
+                    option.value = opcao.valor;
+                    option.textContent = opcao.texto;
+                    selectTipo.appendChild(option);
+                });
+
+                // Campo para o valor do item
+                const inputValor = document.createElement('input');
+                inputValor.type = 'number';
+                inputValor.step = '0.01';
+                inputValor.id = `valorItem${i}`;
+                inputValor.name = `valorItem${i}`;
+                inputValor.placeholder = 'Valor do item';
+
+                // Adiciona os campos ao divItem
+                divItem.appendChild(selectTipo);
+                divItem.appendChild(inputValor);
+
+                // Adiciona divItem ao itensContainer
+                itensContainer.appendChild(divItem);
+            }
+        }
+
+        // Função para limpar o formulário
+        function limparFormulario() {
+            document.getElementById('fornecedor').value = '';
+            document.getElementById('notaFiscal').value = '';
+            document.getElementById('emissao').value = '';
+            document.getElementById('vencimento').value = '';
+            document.getElementById('valor').value = '';
+            document.getElementById('codigoBarras').value = '';
+            document.getElementById('status').value = 'pendente';
+            document.getElementById('detalhes').value = '0';
+            document.getElementById('itensContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
