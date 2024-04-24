@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 
@@ -17,7 +16,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1100px;
             margin: 50px auto;
             padding: 20px;
             background-color: white;
@@ -70,6 +69,69 @@
             display: flex;
             justify-content: space-between;
         }
+
+        /* Estilo para piscar */
+        .piscando {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Estilo para o listview */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .listview {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 300px;
+        }
+
+        .listview select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+
+        .listview button {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .listview button:hover {
+            background-color: #45a049;
+        }
+
+        /* Estilos para linhas da tabela com diferentes status */
+        .pago {
+            background-color: #8bc34a; /* Verde para status 'Pago' */
+        }
+
+        .vence-hoje {
+            background-color: #ffeb3b; /* Amarelo para status 'Vence Hoje' */
+        }
+
     </style>
     <script src="https://www.gstatic.com/firebasejs/8.4.2/firebase.js"></script>
 </head>
@@ -77,6 +139,14 @@
 <body>
     <div class="container">
         <h1>Lista de Boletos</h1>
+        <!-- Listview para filtrar boletos -->
+        <label for="filtroBoletos">Filtrar por:</label>
+        <select id="filtroBoletos" onchange="filtrarBoletos()">
+            <option value="Todos">Todos</option>
+            <option value="Pago">Pago</option>
+            <option value="Pendente">Pendente</option>
+            <option value="VenceHoje">Vence Hoje</option>
+        </select>
 
         <!-- Tabela para exibir os boletos -->
         <table id="boletosTable">
@@ -95,7 +165,7 @@
     </div>
 
     <div class="container">
-        <h1>Gasto de Itens por Mês - <span id="anoLabel">Ano: </span> R$ <span id="totalAno">0</span></h1>
+        <h1>Gasto de Itens por Mês - <span id="anoLabel">Ano: </span> R$ <span id="totalAno">0,00</span></h1>
         <div class="button-container">
             <button onclick="atualizarDados()">Atualizar</button>
             <!-- Botão "Voltar" -->
@@ -127,7 +197,7 @@
     <!-- Tabela para exibir os gastos de itens do ano anterior -->
     <div class="container" id="containerAnoAnterior" style="display: none;">
         <h1>Gasto de Itens do Ano Anterior - <span id="anoLabelAnterior">Ano: </span> R$ <span
-                id="totalAnoAnterior">0</span></h1>
+                id="totalAnoAnterior">0,00</span></h1>
         <table id="itensTableAnterior">
             <thead>
                 <tr>
@@ -151,9 +221,21 @@
         </table>
     </div>
 
+    <!-- Listview para alterar o status do boleto -->
+    <div id="statusListView" class="overlay" style="display: none;">
+        <div class="listview">
+            <label for="statusBoleto">Alterar Status:</label>
+            <select id="statusBoleto">
+                <option value="Pendente">Pendente</option>
+                <option value="Pago">Pago</option>
+               
+            </select>
+            <button onclick="confirmarAlteracaoStatus()">OK</button>
+        </div>
+    </div>
+
     <script>
-        // Configuração do Firebase
-        const firebaseConfig = {
+         const firebaseConfig = {
             apiKey: "AIzaSyCyslX1ydsaMVMSh6rGFbIOX1JFUtGJltQ",
             authDomain: "saj-outlet.firebaseapp.com",
             databaseURL: "https://saj-outlet-default-rtdb.firebaseio.com",
@@ -163,97 +245,117 @@
             appId: "1:840771689142:web:7a90f92242044cf4762417"
         };
 
+
         // Inicializa o Firebase
         firebase.initializeApp(firebaseConfig);
+
         // Função para carregar os boletos e exibir na tabela
         function carregarBoletos() {
             const boletosRef = firebase.database().ref('boletos');
             boletosRef.on('value', snapshot => {
                 const boletosTbody = document.getElementById('boletosTbody');
+                const filtro = document.getElementById('filtroBoletos').value;
                 boletosTbody.innerHTML = ''; // Limpa a tabela
 
                 snapshot.forEach(childSnapshot => {
                     const boleto = childSnapshot.val();
                     const key = childSnapshot.key;
 
-                    // Cria uma linha na tabela para cada boleto
-                    const row = document.createElement('tr');
+                    // Verifica se o boleto deve ser exibido de acordo com o filtro selecionado
+                    if (filtro === 'Todos' || boleto.status === filtro || (filtro === 'VenceHoje' && isVencimentoHoje(boleto.vencimento))) {
+                        // Cria uma linha na tabela para cada boleto
+                        const row = document.createElement('tr');
 
-                    // Cria células para cada campo do boleto
-                    const fornecedorCell = document.createElement('td');
-                    fornecedorCell.textContent = boleto.fornecedor;
+                        // Cria células para cada campo do boleto
+                        const fornecedorCell = document.createElement('td');
+                        fornecedorCell.textContent = boleto.fornecedor;
 
-                    const vencimentoCell = document.createElement('td');
-                    vencimentoCell.textContent = boleto.vencimento;
+                        const vencimentoCell = document.createElement('td');
+                        vencimentoCell.textContent = boleto.vencimento;
 
-                    const valorCell = document.createElement('td');
-                    valorCell.textContent = boleto.valor;
+                        const valorCell = document.createElement('td');
+                        valorCell.textContent = boleto.valor;
 
-                    // Cria uma célula para o campo de status com uma lista suspensa
-                    const statusCell = document.createElement('td');
-                    const statusSelect = document.createElement('select');
-                    const statusOptions = ["Pendente", "Pago", "Atrasado"];
+                        const statusCell = document.createElement('td');
+                        statusCell.textContent = boleto.status;
 
-                    // Adiciona opções à lista suspensa
-                    for (const option of statusOptions) {
-                        const optionElement = document.createElement('option');
-                        optionElement.value = option;
-                        optionElement.text = option;
+                        const codigoBarrasCell = document.createElement('td');
+                        codigoBarrasCell.textContent = boleto.codigoBarras;
 
-                        // Define a opção selecionada como a correspondente ao status atual
-                        if (option === boleto.status) {
-                            optionElement.selected = true;
+                        // Cria célula de ações com botões
+                        const acoesCell = document.createElement('td');
+
+                        // Botão para copiar código de barras
+                        const copiarButton = document.createElement('button');
+                        copiarButton.textContent = 'Copiar';
+                        copiarButton.onclick = function () {
+                            navigator.clipboard.writeText(boleto.codigoBarras)
+                                .then(() => alert('Código de barras copiado para a área de transferência!'))
+                                .catch(error => console.error('Erro ao copiar:', error));
+                        };
+                        acoesCell.appendChild(copiarButton);
+
+                        // Botão para excluir boleto
+                        const excluirButton = document.createElement('button');
+                        excluirButton.textContent = 'Excluir';
+                        excluirButton.onclick = function () {
+                            excluirBoleto(key);
+                        };
+                        acoesCell.appendChild(excluirButton);
+
+                        // Botão para alterar boleto
+                        const alterarButton = document.createElement('button');
+                        alterarButton.textContent = 'Alterar';
+                        alterarButton.onclick = function () {
+                            abrirListViewAlterarStatus(key);
+                        };
+                        acoesCell.appendChild(alterarButton);
+
+                        // Adiciona células à linha
+                        row.appendChild(fornecedorCell);
+                        row.appendChild(vencimentoCell);
+                        row.appendChild(valorCell);
+                        row.appendChild(statusCell);
+                        row.appendChild(codigoBarrasCell);
+                        row.appendChild(acoesCell);
+
+                        // Adiciona classes à linha com base no status do boleto
+                        if (boleto.status === 'Pago') {
+                            row.classList.add('pago');
+                        } else if (filtro === 'VenceHoje' && isVencimentoHoje(boleto.vencimento)) {
+                            row.classList.add('vence-hoje', 'piscando');
+                        } else if (filtro === 'Todos' && isVencimentoHoje(boleto.vencimento)) {
+                            row.classList.add('vence-hoje', 'piscando');
                         }
 
-                        statusSelect.appendChild(optionElement);
+                        // Adiciona a linha à tabela
+                        boletosTbody.appendChild(row);
                     }
-
-                    statusCell.appendChild(statusSelect);
-
-                    const codigoBarrasCell = document.createElement('td');
-                    codigoBarrasCell.textContent = boleto.codigoBarras;
-
-                    // Cria célula de ações com botões
-                    const acoesCell = document.createElement('td');
-
-                    // Botão para copiar código de barras
-                    const copiarButton = document.createElement('button');
-                    copiarButton.textContent = 'Copiar';
-                    copiarButton.onclick = function () {
-                        navigator.clipboard.writeText(boleto.codigoBarras)
-                            .then(() => alert('Código de barras copiado para a área de transferência!'))
-                            .catch(error => console.error('Erro ao copiar:', error));
-                    };
-                    acoesCell.appendChild(copiarButton);
-
-                    // Botão para excluir boleto
-                    const excluirButton = document.createElement('button');
-                    excluirButton.textContent = 'Excluir';
-                    excluirButton.onclick = function () {
-                        excluirBoleto(key);
-                    };
-                    acoesCell.appendChild(excluirButton);
-
-                    // Botão para alterar boleto
-                    const alterarButton = document.createElement('button');
-                    alterarButton.textContent = 'Alterar';
-                    alterarButton.onclick = function () {
-                        alterarBoleto(key, statusSelect);
-                    };
-                    acoesCell.appendChild(alterarButton);
-
-                    // Adiciona células à linha
-                    row.appendChild(fornecedorCell);
-                    row.appendChild(vencimentoCell);
-                    row.appendChild(valorCell);
-                    row.appendChild(statusCell);
-                    row.appendChild(codigoBarrasCell);
-                    row.appendChild(acoesCell);
-
-                    // Adiciona a linha à tabela
-                    boletosTbody.appendChild(row);
                 });
             });
+        }
+
+        // Função para filtrar os boletos de acordo com a opção selecionada
+        function filtrarBoletos() {
+            carregarBoletos();
+        }
+
+        // Função auxiliar para verificar se o vencimento é hoje
+        function isVencimentoHoje(vencimento) {
+            const dataVencimento = new Date(vencimento);
+            const hojeMenosUmDia = new Date();
+            hojeMenosUmDia.setDate(hojeMenosUmDia.getDate() - 1); // Obtém a data de hoje menos um dia
+            // Obtém apenas o dia, mês e ano
+            const diaVencimento = dataVencimento.getDate();
+            const mesVencimento = dataVencimento.getMonth();
+            const anoVencimento = dataVencimento.getFullYear();
+            const diaHojeMenosUmDia = hojeMenosUmDia.getDate();
+            const mesHojeMenosUmDia = hojeMenosUmDia.getMonth();
+            const anoHojeMenosUmDia = hojeMenosUmDia.getFullYear();
+
+            // Compara apenas dia, mês e ano
+            const isHoje = diaVencimento === diaHojeMenosUmDia && mesVencimento === mesHojeMenosUmDia && anoVencimento === anoHojeMenosUmDia;
+            return isHoje;
         }
 
         // Função para excluir um boleto do banco de dados
@@ -267,34 +369,38 @@
             }
         }
 
-        // Função para alterar o status de um boleto existente
-        function alterarBoleto(key, statusSelect) {
-            // Obter o novo status da lista suspensa
-            const novoStatus = statusSelect.value;
+        // Função para abrir o listview para alterar o status do boleto
+        function abrirListViewAlterarStatus(key) {
+            const statusListView = document.getElementById('statusListView');
+            statusListView.style.display = 'flex';
 
-            // Mensagem de confirmação para o novo status
-            const confirmacao = confirm(`Deseja confirmar alteração para "${novoStatus}"?`);
+            // Define a função a ser executada ao clicar no botão "OK"
+            const confirmarAlteracaoStatus = () => {
+                const novoStatus = document.getElementById('statusBoleto').value;
+                const confirmacao = confirm(`Deseja confirmar alteração para "${novoStatus}"?`);
 
-            if (confirmacao) {
-                // Atualizar o status no banco de dados
-                const boletosRef = firebase.database().ref('boletos');
-                boletosRef.child(key).update({ status: novoStatus })
-                    .then(() => alert('Status do boleto atualizado com sucesso!'))
-                    .catch(error => console.error('Erro ao atualizar status do boleto:', error));
-            }
+                if (confirmacao) {
+                    const boletosRef = firebase.database().ref('boletos');
+                    boletosRef.child(key).update({ status: novoStatus })
+                        .then(() => {
+                            alert('Status do boleto atualizado com sucesso!');
+                            statusListView.style.display = 'none';
+                            carregarBoletos(); // Recarrega os boletos após a atualização
+                        })
+                        .catch(error => console.error('Erro ao atualizar status do boleto:', error));
+                } else {
+                    statusListView.style.display = 'none';
+                }
+            };
 
-            // Após a confirmação ou não, recarregar a tabela para exibir os dados atualizados
-            carregarBoletos();
+            // Adiciona a função ao botão "OK"
+            document.getElementById('statusListView').querySelector('button').onclick = confirmarAlteracaoStatus;
         }
 
-        // Carrega os boletos ao carregar a página
-        carregarBoletos();
-
-        // Function to display accumulated items by month
+        // Função para exibir o total de gastos por itens no formato de moeda do Brasil
         function displayAccumulatedItems() {
             const itensBody = document.getElementById('itensBody');
             const totalAnoSpan = document.getElementById('totalAno');
-            const anoLabel = document.getElementById('anoLabel');
             let totalAno = 0;
 
             // Clear previous data
@@ -318,10 +424,6 @@
                     if (Object.hasOwnProperty.call(boletos, key)) {
                         const boleto = boletos[key];
                         const monthEmissao = new Date(boleto.emissao).getMonth(); // Get the month of issuance
-                        const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
-
-                        // Update year label
-                        anoLabel.textContent = `Ano: ${yearEmissao}`;
 
                         // Iterate over each item in the boleto
                         if (boleto.itens) {
@@ -370,64 +472,25 @@
                             row.appendChild(monthCell);
                         }
 
-                        const totalYearCell = document.createElement('td');
-                        totalYearCell.classList.add('total');
-                        totalYearCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
-                        row.appendChild(totalYearCell);
+                        const totalCell = document.createElement('td');
+                        totalCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
+                        row.appendChild(totalCell);
 
                         itensBody.appendChild(row);
 
-                        // Update total year
-                        totalAno += yearTotal;
+                        totalAno += yearTotal; // Add to the total year amount
                     }
                 }
 
-                // Update total year value
+                // Display the total amount of the year
                 totalAnoSpan.textContent = totalAno.toFixed(2);
             });
         }
 
-        // Function to update data when the "Atualizar" button is clicked
-        function atualizarDados() {
-            displayAccumulatedItems();
-        }
-
-        // Call the function to display accumulated items
-        displayAccumulatedItems();
-
-        // Function to check if the year has changed
-        function checkYearChange() {
-            const hoje = new Date();
-            const anoAtual = hoje.getFullYear();
-            const containerAnoAnterior = document.getElementById('containerAnoAnterior');
-
-            containerAnoAnterior.style.display = 'none'; // Hide the previous year container by default
-
-            // Check if there's data for the previous year in the database
-            const boletosRef = firebase.database().ref('boletos');
-            boletosRef.once('value', snapshot => {
-                const boletos = snapshot.val();
-                for (const key in boletos) {
-                    if (Object.hasOwnProperty.call(boletos, key)) {
-                        const boleto = boletos[key];
-                        const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
-
-                        // If there's data for the previous year, show the container and update its content
-                        if (yearEmissao < anoAtual) {
-                            containerAnoAnterior.style.display = 'block';
-                            displayAccumulatedItemsAnoAnterior();
-                            break;
-                        }
-                    }
-                }
-            });
-        }
-
-        // Function to display accumulated items for the previous year
-        function displayAccumulatedItemsAnoAnterior() {
+        // Função para exibir o total de gastos do ano anterior
+        function displayAccumulatedItemsLastYear() {
             const itensBodyAnterior = document.getElementById('itensBodyAnterior');
             const totalAnoAnteriorSpan = document.getElementById('totalAnoAnterior');
-            const anoLabelAnterior = document.getElementById('anoLabelAnterior');
             let totalAnoAnterior = 0;
 
             // Clear previous data
@@ -436,11 +499,8 @@
             // Reference to the "boletos" node in Firebase Database
             const boletosRef = firebase.database().ref('boletos');
 
-            // Dictionary to store the accumulated amount of each item per month for the previous year
-            const accumulatedByItemMonthAnterior = {};
-
-            // Dictionary to store the accumulated amount of each item in the year for the previous year
-            const accumulatedByItemYearAnterior = {};
+            // Dictionary to store the accumulated amount of each item in the previous year
+            const accumulatedByItemLastYear = {};
 
             // Fetch data from Firebase Database
             boletosRef.once('value', snapshot => {
@@ -450,14 +510,9 @@
                 for (const key in boletos) {
                     if (Object.hasOwnProperty.call(boletos, key)) {
                         const boleto = boletos[key];
-                        const monthEmissao = new Date(boleto.emissao).getMonth(); // Get the month of issuance
                         const yearEmissao = new Date(boleto.emissao).getFullYear(); // Get the year of issuance
 
-                        // Check if the boleto is from the previous year
-                        if (yearEmissao < new Date().getFullYear()) {
-                            // Update year label
-                            anoLabelAnterior.textContent = `Ano: ${yearEmissao}`;
-
+                        if (yearEmissao === new Date().getFullYear() - 1) {
                             // Iterate over each item in the boleto
                             if (boleto.itens) {
                                 for (const itemKey in boleto.itens) {
@@ -466,21 +521,13 @@
                                         const itemType = item.tipo;
                                         const itemValue = item.valor;
 
-                                        // Initialize the accumulated amount of the item per month if it doesn't exist
-                                        if (!accumulatedByItemMonthAnterior[itemType]) {
-                                            accumulatedByItemMonthAnterior[itemType] = Array(12).fill(0);
+                                        // Initialize the accumulated amount of the item in the previous year if it doesn't exist
+                                        if (!accumulatedByItemLastYear[itemType]) {
+                                            accumulatedByItemLastYear[itemType] = 0;
                                         }
 
-                                        // Add the item value to the accumulated amount of the item per month
-                                        accumulatedByItemMonthAnterior[itemType][monthEmissao] += itemValue;
-
-                                        // Initialize the accumulated amount of the item in the year if it doesn't exist
-                                        if (!accumulatedByItemYearAnterior[itemType]) {
-                                            accumulatedByItemYearAnterior[itemType] = 0;
-                                        }
-
-                                        // Add the item value to the accumulated amount of the item in the year
-                                        accumulatedByItemYearAnterior[itemType] += itemValue;
+                                        // Add the item value to the accumulated amount of the item in the previous year
+                                        accumulatedByItemLastYear[itemType] += itemValue;
                                     }
                                 }
                             }
@@ -488,11 +535,10 @@
                     }
                 }
 
-                // Display the accumulated amounts of each item per month for the previous year
-                for (const itemType in accumulatedByItemMonthAnterior) {
-                    if (Object.hasOwnProperty.call(accumulatedByItemMonthAnterior, itemType)) {
-                        const monthsTotal = accumulatedByItemMonthAnterior[itemType];
-                        const yearTotal = accumulatedByItemYearAnterior[itemType];
+                // Display the accumulated amounts of each item in the previous year
+                for (const itemType in accumulatedByItemLastYear) {
+                    if (Object.hasOwnProperty.call(accumulatedByItemLastYear, itemType)) {
+                        const yearTotal = accumulatedByItemLastYear[itemType];
 
                         const row = document.createElement('tr');
 
@@ -500,33 +546,36 @@
                         itemNameCell.textContent = itemType;
                         row.appendChild(itemNameCell);
 
-                        for (let i = 0; i < monthsTotal.length; i++) {
-                            const monthCell = document.createElement('td');
-                            monthCell.textContent = `R$ ${monthsTotal[i].toFixed(2)}`;
-                            row.appendChild(monthCell);
-                        }
-
-                        const totalYearCell = document.createElement('td');
-                        totalYearCell.classList.add('total');
-                        totalYearCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
-                        row.appendChild(totalYearCell);
+                        const totalCell = document.createElement('td');
+                        totalCell.textContent = `R$ ${yearTotal.toFixed(2)}`;
+                        row.appendChild(totalCell);
 
                         itensBodyAnterior.appendChild(row);
 
-                        // Update total year for the previous year
-                        totalAnoAnterior += yearTotal;
+                        totalAnoAnterior += yearTotal; // Add to the total previous year amount
                     }
                 }
 
-                // Update total year value for the previous year
+                // Display the total amount of the previous year
                 totalAnoAnteriorSpan.textContent = totalAnoAnterior.toFixed(2);
             });
         }
 
-        // Call the function to check if the year has changed
-        checkYearChange();
+        // Função para atualizar os dados (recarrega os boletos e os gastos por itens)
+        function atualizarDados() {
+            carregarBoletos();
+            displayAccumulatedItems();
+            displayAccumulatedItemsLastYear();
+        }
+
+        // Carrega os boletos e exibe na tabela ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarBoletos();
+            displayAccumulatedItems();
+            displayAccumulatedItemsLastYear();
+        });
+
     </script>
-    
 </body>
 
 </html>

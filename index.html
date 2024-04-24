@@ -12,7 +12,7 @@
             background-color: #f5f5f5;
             margin: 0;
             padding: 0;
-		background-image: url('cover2.png'); /* Substitua 'https://example.com/sua-imagem.jpg' pela URL da sua imagem */
+            background-image: url('cover2.png'); /* Substitua 'https://example.com/sua-imagem.jpg' pela URL da sua imagem */
             background-size: cover;
             background-position: center;
         }
@@ -100,7 +100,7 @@
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
-                <option value="4">4</ption>
+                <option value="4">4</option>
                 <option value="5">5</option>
                 <option value="6">6</option>
                 <option value="7">7</option>
@@ -134,66 +134,64 @@
         // Inicializa o Firebase
         firebase.initializeApp(firebaseConfig);
 
-      function salvarBoleto() {
-    const fornecedor = document.getElementById('fornecedor').value;
-    const notaFiscal = document.getElementById('notaFiscal').value;
-    const emissao = document.getElementById('emissao').value;
-    const vencimento = document.getElementById('vencimento').value;
-    const valor = parseFloat(document.getElementById('valor').value);
-    const codigoBarras = document.getElementById('codigoBarras').value;
-    const status = document.getElementById('status').value;
-    const detalhes = parseInt(document.getElementById('detalhes').value, 10);
+        function salvarBoleto() {
+            const fornecedor = document.getElementById('fornecedor').value.toUpperCase();
+            const notaFiscal = document.getElementById('notaFiscal').value.toUpperCase();
+            const emissao = document.getElementById('emissao').value.toUpperCase();
+            const vencimento = document.getElementById('vencimento').value.toUpperCase();
+            const valor = parseFloat(document.getElementById('valor').value);
+            const codigoBarras = document.getElementById('codigoBarras').value.toUpperCase();
+            const status = document.getElementById('status').value.toUpperCase();
+            const detalhes = parseInt(document.getElementById('detalhes').value, 10);
 
-    // Verifique se todos os campos obrigatórios estão preenchidos
-    if (!fornecedor || !notaFiscal || !emissao || !vencimento || isNaN(valor) || !codigoBarras || !status) {
-        alert('Por favor, preencha todos os campos obrigatórios.');
-        return;
-    }
+            // Verifique se todos os campos obrigatórios estão preenchidos
+            if (!fornecedor || !notaFiscal || !emissao || !vencimento || isNaN(valor) || !codigoBarras || !status) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
 
-    // Adiciona verificação para o número de detalhes
-    if (detalhes === 0) {
-        alert('Por favor, escolha pelo menos 1 detalhe antes de salvar o boleto.');
-        return;
-    }
+            // Adiciona verificação para o número de detalhes
+            if (detalhes === 0) {
+                alert('Por favor, escolha pelo menos 1 detalhe antes de salvar o boleto.');
+                return;
+            }
 
-    // Cria uma lista de itens com base nos detalhes
-    const itens = [];
-    for (let i = 0; i < detalhes; i++) {
-        const tipoItem = document.getElementById(`tipoItem${i}`).value;
-        const valorItem = parseFloat(document.getElementById(`valorItem${i}`).value);
+            // Cria uma lista de itens com base nos detalhes
+            const itens = [];
+            for (let i = 0; i < detalhes; i++) {
+                const tipoItem = document.getElementById(`tipoItem${i}`).value.toUpperCase();
+                const valorItem = parseFloat(document.getElementById(`valorItem${i}`).value);
 
-        if (!tipoItem || isNaN(valorItem)) {
-            alert(`Por favor, preencha todos os campos do item ${i + 1}.`);
-            return;
+                if (!tipoItem || isNaN(valorItem)) {
+                    alert(`Por favor, preencha todos os campos do item ${i + 1}.`);
+                    return;
+                }
+
+                itens.push({ tipo: tipoItem, valor: valorItem });
+            }
+
+            // Cria um objeto com os dados do boleto
+            const boletoData = {
+                fornecedor,
+                notaFiscal,
+                emissao,
+                vencimento,
+                valor,
+                codigoBarras,
+                status,
+                itens,
+            };
+
+            // Salva os dados no Firebase
+            const database = firebase.database();
+            const boletosRef = database.ref('boletos');
+            boletosRef.push(boletoData).then(() => {
+                alert('Boleto salvo com sucesso!');
+                limparFormulario(); // Limpa o formulário após salvar
+            }).catch(error => {
+                alert(`Erro ao salvar boleto: ${error.message}`);
+            });
         }
-
-        itens.push({ tipo: tipoItem, valor: valorItem });
-    }
-
-    // Cria um objeto com os dados do boleto
-    const boletoData = {
-        fornecedor,
-        notaFiscal,
-        emissao,
-        vencimento,
-        valor,
-        codigoBarras,
-        status,
-        itens,
-    };
-
-    // Salva os dados no Firebase
-    const database = firebase.database();
-    const boletosRef = database.ref('boletos');
-    boletosRef.push(boletoData).then(() => {
-        alert('Boleto salvo com sucesso!');
-        limparFormulario(); // Limpa o formulário após salvar
-    }).catch(error => {
-        alert(`Erro ao salvar boleto: ${error.message}`);
-    });
-}
-
-
 
         // Função para gerar campos de itens com base no número de detalhes escolhido
         function gerarCamposItens() {
@@ -224,7 +222,12 @@
                     { valor: 'doces_salgados_sorvetes', texto: 'Doces, Salgados, Sorvetes' },
                     { valor: 'hortifruti_granjeiros', texto: 'Hortifruti-Granjeiros' },
                     { valor: 'saj_central_producao', texto: 'Saj Central Produção' },
-                    { valor: 'outras_materias_primas', texto: 'Outras Matérias-Primas' }
+                    { valor: 'outras_materias_primas', texto: 'Outras Matérias-Primas' },
+                    // Adicionando novas opções
+                    { valor: 'deliver_emb', texto: 'Deliver Emb' },
+                    { valor: 'pastas', texto: 'Pastas' },
+                    { valor: 'capelete', texto: 'Capelete' },
+                    { valor: 'mistura_func', texto: 'Mistura Func' }
                 ];
 
                 opcoesTipo.forEach(opcao => {
@@ -263,6 +266,20 @@
             document.getElementById('detalhes').value = '0';
             document.getElementById('itensContainer').innerHTML = '';
         }
+
+        // Adiciona a funcionalidade de converter o texto para maiúsculas nos campos de texto
+        const camposTexto = document.querySelectorAll('input[type="text"]');
+        camposTexto.forEach(campo => {
+            campo.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+        });
+
+        // Adiciona a funcionalidade de converter o texto para maiúsculas no campo de seleção
+        const campoSelect = document.getElementById('status');
+        campoSelect.addEventListener('change', function() {
+            this.value = this.value.toUpperCase();
+        });
     </script>
 </body>
 </html>
